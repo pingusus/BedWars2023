@@ -84,7 +84,6 @@ public class TabSupport {
             }
         } catch (Exception e) {
             // Silently fail - don't spam console
-            // Bukkit.getLogger().warning("[BedWars] Failed to set tab header/footer for " + player.getName());
         }
     }
     
