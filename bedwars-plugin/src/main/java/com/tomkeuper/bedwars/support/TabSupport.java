@@ -198,4 +198,84 @@ public class TabSupport {
         Method serializeMethod = chatSerializer.getMethod("a", String.class);
         
         // Create chat components
-        Object headerComponent = 
+        Object headerComponent = serializeMethod.invoke(null, "{\"text\":\"" + escapeJson(header) + "\"}");
+        Object footerComponent = serializeMethod.invoke(null, "{\"text\":\"" + escapeJson(footer) + "\"}");
+        
+        // Set packet fields (field names: a = header, b = footer)
+        Field headerField = packetClass.getDeclaredField("a");
+        Field footerField = packetClass.getDeclaredField("b");
+        headerField.setAccessible(true);
+        footerField.setAccessible(true);
+        headerField.set(packet, headerComponent);
+        footerField.set(packet, footerComponent);
+        
+        // Send packet
+        Method sendPacketMethod = playerConnection.getClass().getMethod("sendPacket", getNMSClass("Packet"));
+        sendPacketMethod.invoke(playerConnection, packet);
+    }
+    
+    /**
+     * Get NMS class by name with version support
+     */
+    private static Class<?> getNMSClass(String className) throws ClassNotFoundException {
+        return Class.forName("net.minecraft.server." + nmsVersion + "." + className);
+    }
+    
+    /**
+     * Escape special JSON characters to prevent malformed packets
+     */
+    private static String escapeJson(String text) {
+        if (text == null) return "";
+        return text.replace("\\", "\\\\")
+                   .replace("\"", "\\\"")
+                   .replace("\n", "\\n")
+                   .replace("\r", "")
+                   .replace("\t", "    ");
+    }
+    
+    // ==================== MODERN API IMPLEMENTATION ====================
+    
+    /**
+     * Set header/footer using Bukkit API for servers that support it
+     * This method is only called if the API is confirmed to exist
+     */
+    private static void setHeaderFooter_Modern(Player player, String header, String footer) {
+        if (header == null) header = "";
+        if (footer == null) footer = "";
+        
+        header = ChatColor.translateAlternateColorCodes('&', header);
+        footer = ChatColor.translateAlternateColorCodes('&', footer);
+        
+        try {
+            Method method = Player.class.getMethod("setPlayerListHeaderFooter", String.class, String.class);
+            method.invoke(player, header, footer);
+        } catch (Exception e) {
+            // Fallback to reflection if direct call fails
+            try {
+                setHeaderFooter_Reflection(player, header, footer);
+            } catch (Exception ex) {
+                // Silently fail
+            }
+        }
+    }
+    
+    // ==================== UTILITY METHODS ====================
+    
+    /**
+     * Check if server is running 1.8.x
+     * 
+     * @return true if server is 1.8.x
+     */
+    public static boolean is1_8() {
+        return is1_8;
+    }
+    
+    /**
+     * Get the NMS version string
+     * 
+     * @return version string (e.g., "v1_8_R3")
+     */
+    public static String getNMSVersion() {
+        return nmsVersion;
+    }
+}
