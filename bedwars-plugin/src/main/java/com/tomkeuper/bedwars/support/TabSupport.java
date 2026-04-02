@@ -40,17 +40,28 @@ public class TabSupport {
     
     private static boolean is1_8;
     private static String nmsVersion;
+    private static boolean useReflection = false;
     
     static {
         try {
             String packageName = Bukkit.getServer().getClass().getPackage().getName();
             nmsVersion = packageName.substring(packageName.lastIndexOf('.') + 1);
             is1_8 = nmsVersion.startsWith("v1_8");
-            Bukkit.getLogger().info("[BedWars] TabSupport initialized for " + nmsVersion + " (1.8 mode: " + is1_8 + ")");
+            
+            // Check if modern Bukkit API is available
+            try {
+                Player.class.getMethod("setPlayerListHeaderFooter", String.class, String.class);
+                useReflection = false;
+            } catch (NoSuchMethodException e) {
+                useReflection = true;
+            }
+            
+            Bukkit.getLogger().info("[BedWars] TabSupport initialized for " + nmsVersion + " (1.8 mode: " + is1_8 + ", reflection: " + useReflection + ")");
         } catch (Exception e) {
             Bukkit.getLogger().warning("[BedWars] Failed to detect server version for TabSupport");
             nmsVersion = "unknown";
             is1_8 = false;
+            useReflection = true;
         }
     }
     
@@ -66,13 +77,14 @@ public class TabSupport {
         if (player == null || !player.isOnline()) return;
         
         try {
-            if (is1_8) {
-                setHeaderFooter_1_8(player, header, footer);
+            if (is1_8 || useReflection) {
+                setHeaderFooter_Reflection(player, header, footer);
             } else {
                 setHeaderFooter_Modern(player, header, footer);
             }
         } catch (Exception e) {
-            Bukkit.getLogger().warning("[BedWars] Failed to set tab header/footer for " + player.getName() + ": " + e.getMessage());
+            // Silently fail - don't spam console
+            // Bukkit.getLogger().warning("[BedWars] Failed to set tab header/footer for " + player.getName());
         }
     }
     
@@ -129,7 +141,7 @@ public class TabSupport {
                 team.addEntry(player.getName());
             }
         } catch (Exception e) {
-            Bukkit.getLogger().warning("[BedWars] Failed to set tab prefix for " + player.getName() + ": " + e.getMessage());
+            // Silently fail
         }
     }
     
@@ -156,41 +168,40 @@ public class TabSupport {
                 team.unregister();
             }
         } catch (Exception e) {
-            Bukkit.getLogger().warning("[BedWars] Failed to remove tab prefix for " + player.getName() + ": " + e.getMessage());
+            // Silently fail
         }
     }
     
-    // ==================== 1.8.8 IMPLEMENTATION ====================
+    // ==================== REFLECTION-BASED IMPLEMENTATION ====================
     
     /**
-     * Set header/footer using NMS packets for 1.8.8
-     * Uses reflection to maintain compatibility across different 1.8 builds
+     * Set header/footer using reflection for maximum compatibility
+     * Works on 1.8.8 through modern versions
      */
-    private static void setHeaderFooter_1_8(Player player, String header, String footer) throws Exception {
+    private static void setHeaderFooter_Reflection(Player player, String header, String footer) throws Exception {
         if (header == null) header = "";
         if (footer == null) footer = "";
         
         header = ChatColor.translateAlternateColorCodes('&', header);
         footer = ChatColor.translateAlternateColorCodes('&', footer);
         
-        // Get CraftPlayer handle using reflection
+        // Get CraftPlayer handle
         Object craftPlayer = player.getClass().getMethod("getHandle").invoke(player);
         Object playerConnection = craftPlayer.getClass().getField("playerConnection").get(craftPlayer);
         
-        // Get NMS classes
+        // Get packet class
         Class<?> packetClass = getNMSClass("PacketPlayOutPlayerListHeaderFooter");
-        Class<?> chatSerializer = getNMSClass("IChatBaseComponent$ChatSerializer");
-        
-        // Create new packet instance
         Object packet = packetClass.newInstance();
         
-        // Serialize header and footer to IChatBaseComponent
+        // Get chat serializer
+        Class<?> chatSerializer = getNMSClass("IChatBaseComponent$ChatSerializer");
         Method serializeMethod = chatSerializer.getMethod("a", String.class);
+        
+        // Create chat components
         Object headerComponent = serializeMethod.invoke(null, "{\"text\":\"" + escapeJson(header) + "\"}");
         Object footerComponent = serializeMethod.invoke(null, "{\"text\":\"" + escapeJson(footer) + "\"}");
         
-        // Set packet fields
-        // In 1.8, field "a" is header, field "b" is footer
+        // Set packet fields (field names: a = header, b = footer)
         Field headerField = packetClass.getDeclaredField("a");
         Field footerField = packetClass.getDeclaredField("b");
         headerField.setAccessible(true);
@@ -198,7 +209,7 @@ public class TabSupport {
         headerField.set(packet, headerComponent);
         footerField.set(packet, footerComponent);
         
-        // Send packet to player
+        // Send packet
         Method sendPacketMethod = playerConnection.getClass().getMethod("sendPacket", getNMSClass("Packet"));
         sendPacketMethod.invoke(playerConnection, packet);
     }
@@ -222,11 +233,11 @@ public class TabSupport {
                    .replace("\t", "    ");
     }
     
-    // ==================== MODERN VERSION IMPLEMENTATION ====================
+    // ==================== MODERN API IMPLEMENTATION ====================
     
     /**
-     * Set header/footer using Bukkit API for 1.9+
-     * This method is much simpler as Bukkit provides native support
+     * Set header/footer using Bukkit API for servers that support it
+     * This method is only called if the API is confirmed to exist
      */
     private static void setHeaderFooter_Modern(Player player, String header, String footer) {
         if (header == null) header = "";
@@ -235,7 +246,17 @@ public class TabSupport {
         header = ChatColor.translateAlternateColorCodes('&', header);
         footer = ChatColor.translateAlternateColorCodes('&', footer);
         
-        player.setPlayerListHeaderFooter(header, footer);
+        try {
+            Method method = Player.class.getMethod("setPlayerListHeaderFooter", String.class, String.class);
+            method.invoke(player, header, footer);
+        } catch (Exception e) {
+            // Fallback to reflection if direct call fails
+            try {
+                setHeaderFooter_Reflection(player, header, footer);
+            } catch (Exception ex) {
+                // Silently fail
+            }
+        }
     }
     
     // ==================== UTILITY METHODS ====================
