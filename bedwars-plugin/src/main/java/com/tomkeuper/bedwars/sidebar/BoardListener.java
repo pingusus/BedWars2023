@@ -23,10 +23,12 @@ package com.tomkeuper.bedwars.sidebar;
 import com.tomkeuper.bedwars.api.arena.IArena;
 import com.tomkeuper.bedwars.api.events.player.PlayerLeaveArenaEvent;
 import com.tomkeuper.bedwars.arena.Arena;
+import com.tomkeuper.bedwars.support.TabSupport;
 import me.neznamy.tab.api.TabAPI;
 import me.neznamy.tab.api.TabPlayer;
 import me.neznamy.tab.api.bossbar.BossBar;
 import me.neznamy.tab.api.placeholder.PlayerPlaceholder;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -38,6 +40,8 @@ public class BoardListener implements Listener {
     @EventHandler
     public void onArenaLeave(PlayerLeaveArenaEvent event){
         IArena arena = Arena.getArenaByPlayer(event.getPlayer());
+        Player player = event.getPlayer();
+        
         if (TabAPI.getInstance().getPlayer(event.getPlayer().getUniqueId()) == null) return;
         if (TabAPI.getInstance().getBossBarManager() != null && arena != null){
             for (BossBar bossBar : arena.getDragonBossbars()){
@@ -57,6 +61,9 @@ public class BoardListener implements Listener {
         suffixPlaceholderTab.updateValue(tabPlayer, BoardManager.getInstance().getSuffixTab(tabPlayer));
         prefixPlaceholderHead.updateValue(tabPlayer, BoardManager.getInstance().getPrefixHead(tabPlayer));
         suffixPlaceholderHead.updateValue(tabPlayer, BoardManager.getInstance().getSuffixHead(tabPlayer));
+        
+        // Clean up TabSupport
+        TabSupport.removeTabPrefix(player);
     }
 
     @EventHandler
@@ -67,5 +74,6 @@ public class BoardListener implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event){
         BoardManager.getInstance().tabPlayerCache.remove(event.getPlayer().getUniqueId());
+        TabSupport.removeTabPrefix(event.getPlayer());
     }
 }
