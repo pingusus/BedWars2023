@@ -1,32 +1,39 @@
-name: Build BedWars2023 (Only Build JAR)
+name: Build BedWars2023
 
 on:
   push:
-    branches: [ master, main, production ]  # Adjust based on your branch name
-  workflow_dispatch:  # Allows manual trigger
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
 
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-
-      - name: Build plugin with Gradle (shadowJar)
-        run: ./gradlew clean shadowJar --no-daemon --info
-
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: BedWars2023-Fixed-1.8.8
-          path: bedwars-plugin/build/libs/*.jar
+    - name: Build with Gradle (skip publishing)
+      run: |
+        ./gradlew build -x publish
+        
+    - name: Find JAR files
+      run: |
+        echo "Listing all JAR files..."
+        find . -name "*.jar" -type f -exec ls -la {} \;
+        
+    - name: Upload Plugin JARs
+      uses: actions/upload-artifact@v3
+      with:
+        name: BedWars2023-1.8.8-Fixed
+        path: |
+          bedwars-plugin/build/libs/*.jar
+          bedwars-api/build/libs/*.jar
