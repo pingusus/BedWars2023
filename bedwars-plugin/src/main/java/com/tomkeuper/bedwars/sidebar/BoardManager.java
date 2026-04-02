@@ -348,6 +348,7 @@ public class BoardManager implements IScoreboardService {
             pm.registerPlayerPlaceholder("%bw_team_"+ i +"%", 50, player -> getTeamPlaceholder((Player) player.getPlayer(), finalI));
         }
     }
+    
     @Override
     public void giveTabFeatures(@NotNull Player player, @Nullable IArena arena, boolean delay) {
         Bukkit.getScheduler().runTaskLater(BedWars.plugin, () -> {
@@ -409,10 +410,16 @@ public class BoardManager implements IScoreboardService {
             setHeaderFooter(tabPlayer, arena);
 
             if (BedWars.config.getBoolean(ConfigPath.SB_CONFIG_SIDEBAR_NAME_FORMATTING_ENABLED)){
-                // Use TabSupport for prefix/suffix instead of TAB's tablist formatter
-                String prefix = getPrefixTab(tabPlayer);
-                String suffix = getSuffixTab(tabPlayer);
-                TabSupport.setTabPrefix(player, prefix, suffix);
+                // Use TAB's tablist formatter if available
+                if (tabListFormatManager != null) {
+                    tabListFormatManager.setPrefix(tabPlayer, "%bw_prefix_tab%");
+                    tabListFormatManager.setSuffix(tabPlayer, "%bw_suffix_tab%");
+                } else {
+                    // Fallback to TabSupport only if TAB's formatter is disabled
+                    String prefix = getPrefixTab(tabPlayer);
+                    String suffix = getSuffixTab(tabPlayer);
+                    TabSupport.setTabPrefix(player, prefix, suffix);
+                }
             }
 
             nameTagManager.setPrefix(tabPlayer, "%bw_prefix_head%");
@@ -499,8 +506,10 @@ public class BoardManager implements IScoreboardService {
         // Reset scoreboard
         scoreboardManager.resetScoreboard(tabPlayer);
         
-        // Clean up TabSupport
-        TabSupport.removeTabPrefix(player);
+        // Only clean up TabSupport if TAB's formatter is not available
+        if (tabListFormatManager == null) {
+            TabSupport.removeTabPrefix(player);
+        }
     }
 
     public String getPrefixTab(TabPlayer tabPlayer) {
@@ -757,7 +766,6 @@ public class BoardManager implements IScoreboardService {
     }
 
     private void setHeaderFooter(TabPlayer player, IArena arena) {
-        // Use TabSupport instead of TAB's header/footer manager for 1.8.8 compatibility
         Player bukkitPlayer = (Player) player.getPlayer();
         if (bukkitPlayer == null || !bukkitPlayer.isOnline()) return;
         
@@ -797,8 +805,13 @@ public class BoardManager implements IScoreboardService {
             }
         }
         
-        // Use our TabSupport for 1.8.8 compatibility
-        TabSupport.setHeaderFooter(bukkitPlayer, header, footer);
+        // Try to use TAB's header/footer manager first
+        if (TabAPI.getInstance().getHeaderFooterManager() != null) {
+            TabAPI.getInstance().getHeaderFooterManager().setHeaderAndFooter(player, header, footer);
+        } else {
+            // Fallback to TabSupport for 1.8.8 compatibility if TAB doesn't have header/footer enabled
+            TabSupport.setHeaderFooter(bukkitPlayer, header, footer);
+        }
     }
 
     /**
