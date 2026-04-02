@@ -32,6 +32,7 @@ import com.tomkeuper.bedwars.api.sidebar.IScoreboardService;
 import com.tomkeuper.bedwars.api.tasks.PlayingTask;
 import com.tomkeuper.bedwars.arena.Arena;
 import com.tomkeuper.bedwars.levels.internal.PlayerLevel;
+import com.tomkeuper.bedwars.support.TabSupport;
 import lombok.Getter;
 import me.neznamy.tab.api.TabAPI;
 import me.neznamy.tab.api.TabPlayer;
@@ -408,8 +409,10 @@ public class BoardManager implements IScoreboardService {
             setHeaderFooter(tabPlayer, arena);
 
             if (BedWars.config.getBoolean(ConfigPath.SB_CONFIG_SIDEBAR_NAME_FORMATTING_ENABLED)){
-                tabListFormatManager.setPrefix(tabPlayer, "%bw_prefix_tab%");
-                tabListFormatManager.setSuffix(tabPlayer, "%bw_suffix_tab%");
+                // Use TabSupport for prefix/suffix instead of TAB's tablist formatter
+                String prefix = getPrefixTab(tabPlayer);
+                String suffix = getSuffixTab(tabPlayer);
+                TabSupport.setTabPrefix(player, prefix, suffix);
             }
 
             nameTagManager.setPrefix(tabPlayer, "%bw_prefix_head%");
@@ -495,6 +498,9 @@ public class BoardManager implements IScoreboardService {
 
         // Reset scoreboard
         scoreboardManager.resetScoreboard(tabPlayer);
+        
+        // Clean up TabSupport
+        TabSupport.removeTabPrefix(player);
     }
 
     public String getPrefixTab(TabPlayer tabPlayer) {
@@ -751,53 +757,48 @@ public class BoardManager implements IScoreboardService {
     }
 
     private void setHeaderFooter(TabPlayer player, IArena arena) {
-        if (TabAPI.getInstance().getHeaderFooterManager() == null) return;
+        // Use TabSupport instead of TAB's header/footer manager for 1.8.8 compatibility
+        Player bukkitPlayer = (Player) player.getPlayer();
+        if (bukkitPlayer == null || !bukkitPlayer.isOnline()) return;
+        
         if (isTabFormattingDisabled(arena)) {
             return;
         }
-        Language lang = Language.getPlayerLanguage((Player) player.getPlayer());
+        
+        Language lang = Language.getPlayerLanguage(bukkitPlayer);
+
+        String header = null;
+        String footer = null;
 
         if (null == arena) {
-            Objects.requireNonNull(TabAPI.getInstance().getHeaderFooterManager()).setHeaderAndFooter(
-                    player, lang.m(Messages.FORMATTING_SIDEBAR_TAB_HEADER_LOBBY),
-                    lang.m(Messages.FORMATTING_SIDEBAR_TAB_FOOTER_LOBBY)
-            );
-            return;
+            header = lang.m(Messages.FORMATTING_SIDEBAR_TAB_HEADER_LOBBY);
+            footer = lang.m(Messages.FORMATTING_SIDEBAR_TAB_FOOTER_LOBBY);
+        } else if (arena.isSpectator(bukkitPlayer)) {
+            header = lang.m(Messages.FORMATTING_SIDEBAR_TAB_HEADER_SPECTATOR);
+            footer = lang.m(Messages.FORMATTING_SIDEBAR_TAB_FOOTER_SPECTATOR);
+        } else {
+            switch (arena.getStatus()) {
+                case waiting:
+                    header = lang.m(Messages.FORMATTING_SIDEBAR_TAB_HEADER_WAITING);
+                    footer = lang.m(Messages.FORMATTING_SIDEBAR_TAB_FOOTER_WAITING);
+                    break;
+                case starting:
+                    header = lang.m(Messages.FORMATTING_SIDEBAR_TAB_HEADER_STARTING);
+                    footer = lang.m(Messages.FORMATTING_SIDEBAR_TAB_FOOTER_STARTING);
+                    break;
+                case playing:
+                    header = lang.m(Messages.FORMATTING_SIDEBAR_TAB_HEADER_PLAYING);
+                    footer = lang.m(Messages.FORMATTING_SIDEBAR_TAB_FOOTER_PLAYING);
+                    break;
+                case restarting:
+                    header = lang.m(Messages.FORMATTING_SIDEBAR_TAB_HEADER_RESTARTING);
+                    footer = lang.m(Messages.FORMATTING_SIDEBAR_TAB_FOOTER_RESTARTING);
+                    break;
+            }
         }
-        if (arena.isSpectator((Player) player.getPlayer())) {
-            Objects.requireNonNull(TabAPI.getInstance().getHeaderFooterManager()).setHeaderAndFooter(
-                    player, lang.m(Messages.FORMATTING_SIDEBAR_TAB_HEADER_SPECTATOR),
-                    lang.m(Messages.FORMATTING_SIDEBAR_TAB_FOOTER_SPECTATOR)
-            );
-            return;
-        }
-
-        String headerPath = null;
-        String footerPath = null;
-
-        switch (arena.getStatus()) {
-            case waiting:
-                headerPath = Messages.FORMATTING_SIDEBAR_TAB_HEADER_WAITING;
-                footerPath = Messages.FORMATTING_SIDEBAR_TAB_FOOTER_WAITING;
-                break;
-            case starting:
-                headerPath = Messages.FORMATTING_SIDEBAR_TAB_HEADER_STARTING;
-                footerPath = Messages.FORMATTING_SIDEBAR_TAB_FOOTER_STARTING;
-                break;
-            case playing:
-                headerPath = Messages.FORMATTING_SIDEBAR_TAB_HEADER_PLAYING;
-                footerPath = Messages.FORMATTING_SIDEBAR_TAB_FOOTER_PLAYING;
-                break;
-            case restarting:
-                headerPath = Messages.FORMATTING_SIDEBAR_TAB_HEADER_RESTARTING;
-                footerPath = Messages.FORMATTING_SIDEBAR_TAB_FOOTER_RESTARTING;
-                break;
-        }
-
-        Objects.requireNonNull(TabAPI.getInstance().getHeaderFooterManager()).setHeaderAndFooter(
-                player, lang.m(headerPath),
-                lang.m(footerPath)
-        );
+        
+        // Use our TabSupport for 1.8.8 compatibility
+        TabSupport.setHeaderFooter(bukkitPlayer, header, footer);
     }
 
     /**
