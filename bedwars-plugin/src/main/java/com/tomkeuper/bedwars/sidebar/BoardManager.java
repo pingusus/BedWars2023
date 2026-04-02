@@ -1,5 +1,6 @@
 package com.tomkeuper.bedwars.sidebar;
 
+import com.tomkeuper.bedwars.support.TabSupport;
 import com.tomkeuper.bedwars.api.arena.IArena;
 import com.tomkeuper.bedwars.api.language.Language;
 import com.tomkeuper.bedwars.api.language.Messages;
