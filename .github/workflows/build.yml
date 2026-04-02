@@ -21,19 +21,31 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Build with Gradle (skip publishing)
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build with Gradle (assemble only, skip all publish tasks)
+      run: ./gradlew assemble --no-daemon -x publishMavenJavaPublicationToMavenRepository -x publish -x publishToMavenLocal
+      continue-on-error: false
+
+    - name: List built files
       run: |
-        ./gradlew build -x publish
-        
-    - name: Find JAR files
-      run: |
-        echo "Listing all JAR files..."
-        find . -name "*.jar" -type f -exec ls -la {} \;
-        
-    - name: Upload Plugin JARs
+        echo "=== bedwars-plugin JARs ==="
+        ls -lh bedwars-plugin/build/libs/ || echo "No plugin JARs found"
+        echo ""
+        echo "=== bedwars-api JARs ==="
+        ls -lh bedwars-api/build/libs/ || echo "No API JARs found"
+
+    - name: Upload BedWars Plugin
       uses: actions/upload-artifact@v3
       with:
-        name: BedWars2023-1.8.8-Fixed
-        path: |
-          bedwars-plugin/build/libs/*.jar
-          bedwars-api/build/libs/*.jar
+        name: BedWars2023-Plugin
+        path: bedwars-plugin/build/libs/*.jar
+        if-no-files-found: warn
+
+    - name: Upload BedWars API
+      uses: actions/upload-artifact@v3
+      with:
+        name: BedWars2023-API
+        path: bedwars-api/build/libs/*.jar
+        if-no-files-found: warn
