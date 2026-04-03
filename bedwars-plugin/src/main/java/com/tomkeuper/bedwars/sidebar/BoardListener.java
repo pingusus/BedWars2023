@@ -38,7 +38,6 @@ public class BoardListener implements Listener {
     @EventHandler
     public void onArenaLeave(PlayerLeaveArenaEvent event){
         IArena arena = Arena.getArenaByPlayer(event.getPlayer());
-        
         if (TabAPI.getInstance().getPlayer(event.getPlayer().getUniqueId()) == null) return;
         if (TabAPI.getInstance().getBossBarManager() != null && arena != null){
             for (BossBar bossBar : arena.getDragonBossbars()){
