@@ -385,8 +385,7 @@ public class Arena implements IArena {
         arenas.add(this);
         arenaByName.put(getArenaName(), this);
         arenaByIdentifier.put(worldName, this);
-        world.getWorldBorder().setCenter(cm.getArenaLoc("waiting.Loc"));
-        world.getWorldBorder().setSize(yml.getInt("worldBorder"));
+        // WorldBorder removed and replaced by BuildLimiter listener
 
         /* Check if lobby removal is set */
         if (!getConfig().getYml().isSet(ConfigPath.ARENA_WAITING_POS1) && getConfig().getYml().isSet(ConfigPath.ARENA_WAITING_POS2)) {
